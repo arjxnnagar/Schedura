@@ -12,8 +12,8 @@ import {
 const Schedura = () => {
   const [posts, setPosts] = useState([]);
   const [content, setContent] = useState("");
-  const [scheduledDate, setscheduledDate] = useState("");
-  const [scheduledTime, setscheduledTime] = useState("");
+  const [scheduledDate, setScheduledDate] = useState("");
+  const [scheduledTime, setScheduledTime] = useState("");
   const [selectedPlatforms, setSelectedPlatforms] = useState([]);
   const [mediaFile, setMediaFile] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -159,7 +159,7 @@ const Schedura = () => {
                   required
                   className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 text-sm outline-none"
                   value={scheduledDate}
-                  onChange={(e) => setscheduledDate(e.target.value)}
+                  onChange={(e) => setScheduledDate(e.target.value)}
                 />
               </div>
               <div>
@@ -175,7 +175,7 @@ const Schedura = () => {
                   required
                   className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 text-sm outline-none"
                   value={scheduledTime}
-                  onChange={(e) => setscheduledTime(e.target.value)}
+                  onChange={(e) => setScheduledTime(e.target.value)}
                 />
               </div>
             </div>

@@ -5,7 +5,7 @@ import { MenuIcon } from "lucide-react";
 
 const pageTitles = {
   "/dashboard": "Dashboard",
-  "/accounts": "Socail Accounts",
+  "/accounts": "Social Accounts",
   "/schedura": "Post Schedular",
   "/ai-composer": "AI composer",
 };
