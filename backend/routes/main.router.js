@@ -5,6 +5,7 @@ import { protect } from "../middleware/m.auth.js";
 import { addAccount, disconnectAccount, getAccounts } from "../controllers/accountController.js";
 import { generatePost, getGenerations, getPosts, schedulePosts } from "../controllers/postController.js";
 import { upload } from "../config/multer.js";
+import { getActivity } from "../controllers/activityController.js";
 
 const mainRouter = express.Router();
 
@@ -23,5 +24,8 @@ mainRouter.get("/posts",protect,getPosts);
 mainRouter.get("/posts/generations", protect, getGenerations);
 mainRouter.get("/posts/generate", protect, generatePost);
 mainRouter.get("/generations", protect, upload.single("media") ,schedulePosts);
+mainRouter.get("/activity",protect,getActivity);
+
+
 
 export default mainRouter;

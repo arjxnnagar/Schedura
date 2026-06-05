@@ -3,6 +3,7 @@ import { configDotenv } from "dotenv";
 import cors from "cors";
 import mainRouter from "./routes/main.router.js";
 import connectDB from "./config/db.js";
+import { initSchedular } from "./services/schedulerService.js";
 
 const app = express();
 configDotenv();
@@ -15,6 +16,9 @@ app.use("/",mainRouter);
 
 
 await connectDB();
+
+initSchedular();
+
 
 app.use((err,req,res,next)=>{
     console.error(err);
