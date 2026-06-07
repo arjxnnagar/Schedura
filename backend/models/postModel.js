@@ -4,9 +4,9 @@ const postSchema = new Schema(
   {
     user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
     content: { type: String, required: true },
-    medaiUrl: { type: String },
+    mediaUrl: { type: String },
     mediaType: { type: String, enum: ["image", "video"] },
-    platform: {
+    platform: [{
       type: String,
       enum: [
         "twitter",
@@ -17,8 +17,8 @@ const postSchema = new Schema(
         "linkedin_page",
         "instagram_business",
       ],
-    },
-    scheduleFor: { type: Date, required: true },
+    }],
+    scheduledFor: { type: Date, required: true },
     status: {
       type: String,
       enum: ["draft", "scheduled", "published", "failed"],

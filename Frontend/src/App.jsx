@@ -7,12 +7,13 @@ import Accounts from "./pages/Accounts";
 import Schedura from "./pages/Schedura";
 import AIcomposer from "./pages/AIcomposer";
 import Notfound from "./pages/Notfound";
-
+import {Toaster} from "react-hot-toast";
 
 
 export default function App() {
   return (
     <>
+    <Toaster position="top-right" />
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/login" element={<Login />} />

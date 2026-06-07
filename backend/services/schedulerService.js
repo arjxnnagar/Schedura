@@ -1,8 +1,8 @@
 import cron from "node-cron";
 import Post from "../models/postModel.js";
-import Account from "../models/accountModel";
-import zernio from "../config/zernio";
-import ActivityLog from "../models/activityLogModel";
+import Account from "../models/accountModel.js";
+import zernio from "../config/zernio.js";
+import ActivityLog from "../models/activityLogModel.js";
 
 export const initSchedular = ()=>{
     cron.schedule("* * * * *",async()=>{
@@ -14,28 +14,28 @@ export const initSchedular = ()=>{
                 try{
                     const accounts  = await Account.find({
                         user:post.user,
-                        platform : {$in: post.platforms},
+                        platform : {$in: post.platform},
                         status:"connected",
                         zernioAccountId:{$exists: true}
                     })
 
                     if(accounts.length === 0){
-                        console.log(`No connected Zernio accounts form post ${post._id} `)
+                        console.log(`No connected Zernio accounts for post ${post._id} `)
                         continue;
                     }
                     const zernioPlatforms = accounts.map((acc)=>({
-                        tform : acc.platform,
+                        platform : acc.platform,
                         accountId:acc.zernioAccountId
                     }))
                     const payload = {
                         content : post.content,
                         publishNow :true,
-                        ...(post.medaiUrl ? {mediaItems : [{type:post.mediaType || "image",url:post.medaiUrl}]} :{}),
+                        ...(post.mediaUrl ? {mediaItems : [{type:post.mediaType || "image",url:post.mediaUrl}]} :{}),
                         platforms:zernioPlatforms,
                     }
-                    console.log(`Publishing post ${post._id} to Zernio with media :${post.medaiUrl || "none"}`)
+                    console.log(`Publishing post ${post._id} to Zernio with media :${post.mediaUrl || "none"}`)
                     
-                    const resposne = await zernio.posts.createPost({
+                    const response = await zernio.posts.createPost({
                         body:payload
                     })
                     const publishedPost = response.data.post || response.data;
@@ -48,10 +48,10 @@ export const initSchedular = ()=>{
 
                     post.status ="published";
                     await post.save();
-                    await Activitylog.create({
+                    await ActivityLog.create({
                         user: post.user,
                         actionType: "POST_PUBLISHED",
-                        description: `Published post to $(accounts. map( (a) => a.platform).join(", ")}`,
+                        description: `Published post to ${accounts.map((a) => a.platform).join(", ")}`,
                         relatedPost: post._id,
                     })
 
@@ -62,11 +62,14 @@ export const initSchedular = ()=>{
                 }
             }
             if(postsToPublish.length > 0){
-                console. log(`Evaluated $(postsToPublish.length} posts at ${now.toIsoString() }`);
+                console. log(`Evaluated ${postsToPublish.length} posts at ${now.toISOString() }`);
             }
 
         } catch (err) {
-            console.error("error in Scheduler",err);
+            console.error(
+              `Failed to publish Post ${post._id}:`,
+              e.response?.data || e.message,
+            );
         }
     })
     console.log("Schedura service initialized");

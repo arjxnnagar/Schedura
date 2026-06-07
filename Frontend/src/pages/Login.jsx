@@ -1,6 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { MailIcon, LockIcon, ArrowRightIcon, User2Icon } from "lucide-react";
+import { useAuth } from "../context/authContext";
+import toast from "react-hot-toast";
+import api from "../api/axios.js"
 
 export default function Login() {
     const [loginState, setLoginState] = useState(true);
@@ -10,14 +13,31 @@ export default function Login() {
     const [loading, setLoading] = useState(false);
     const navigate = useNavigate();
 
+    const {login,user} = useAuth();
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
-        setTimeout(() => {
-            setLoading(false);
+        try {
+            const {data} = await api.post(`/users/${loginState ? "login" :"register"}`,{
+                name,
+                email,
+                password
+            })
+            login(data,data.token);
             navigate("/dashboard");
-        }, 1000);
+        } catch (err) {
+            toast.error(err.message);
+        }finally{
+            setLoading(false);
+        }
     };
+
+    useEffect(()=>{
+        if(user){
+            navigate("/dashboard");
+        }
+    },[user])
 
     return (
         <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4">

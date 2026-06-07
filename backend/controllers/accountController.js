@@ -1,14 +1,22 @@
 import Account from "../models/accountModel.js";
+import zernio from "../config/zernio.js";
 
 export const getAccounts = async (req, res) => {
   try {
     const accounts = await Account.find({ user: req.user._id });
-    res.json(accounts);
+    const sanitizedAccounts = accounts.map((account) => {
+      const plainAccount = account.toObject();
+      return {
+        ...plainAccount,
+        status: plainAccount.status || "connected", // Fallback for OAuth synced records
+      };
+    });
+
+    res.json(sanitizedAccounts);
   } catch (err) {
     res.status(500).json({ message: err.message || "Server Error" });
   }
 };
-
 export const addAccount = async (req, res) => {
   try {
     const { platform, handle, avatarUrl } = req.body;
@@ -18,6 +26,7 @@ export const addAccount = async (req, res) => {
       platform,
       handle,
       avatarUrl,
+      status:"connected",
     });
     res.status(201).json(account);
   } catch (err) {

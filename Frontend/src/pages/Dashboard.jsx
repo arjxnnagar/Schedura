@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import {ActivityIcon, CircleCheckIcon, ClockIcon, HandMetal, SendIcon, Share2Icon, TrendingUpIcon} from "lucide-react"
-import { dummyAccountsData, dummyActivityData, dummyPostsData } from '../assets/assets.jsx';
+import api from '../api/axios.js';
 
 const Dashboard = () => {
 
@@ -10,9 +10,9 @@ const Dashboard = () => {
   useEffect(()=>{
     const fetchDashboardData = async ()=>{
       try{
-        const postsRes = dummyPostsData;
-        const accountsRes = dummyAccountsData;
-        const activityRes = dummyActivityData;
+        const postsRes = await api.get("/posts");
+        const accountsRes = await api.get("/accounts");
+        const activityRes = await api.get("/activity");
         
         const posts = postsRes;
         setStats({

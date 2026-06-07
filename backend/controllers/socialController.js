@@ -11,17 +11,17 @@ const getOrCreateZernioProfile = async(user)=>{
         const profiles = Array.isArray(data) ? data : data.profiles || data.data || [];
 
         if(profiles.length>0){
-            const pid = profiles[0].id || profiles[0]._id;
+            const pid = profiles[0]._id || profiles[0].id;
             await User.findByIdAndUpdate(user._id , {zernioProfileId:pid});
             return pid;
         }
 
         const createResult = await zernio.profiles.createProfile({
-            name: `${user.name || user.email}'s workspace`
+            body :{name: `${user.name || user.email}'s workspace`}
         })
 
         const created = (createResult.data).profile || createResult.data;
-        const pid = created.id || created._id;
+        const pid = created._id || created.id;
 
         if(!pid){
             throw new Error("Failed to create Zerino profile - No Id returned");
@@ -43,9 +43,9 @@ export const generateAuthUrl = async(req,res)=>{
 
         const origin = req.headers.origin;
         const redirectUrl = `${origin}/accounts`;
-
+        console.log("Platform received:", platform);
         const result = await zernio.connect.getConnectUrl({
-            path : platform,
+            path : {platform:platform},
             query:{
                 profileId,
                 redirect_url: redirectUrl,
@@ -61,7 +61,7 @@ export const generateAuthUrl = async(req,res)=>{
         }
         res.json({url : authUrl})
     }catch(err){
-        res.status(500).json({messgae:err});
+        res.status(500).json({message:err.message});
     }
 }
 
@@ -98,7 +98,7 @@ export const syncAccount = async (req,res)=>{
                     platform:normalizedPlatform,
                     handle: zernioAccount.username || zernioAccount.name || zernioAccount.handle || "unknown",
                     zernioAccountId:zid,
-                    status :"Connected",
+                    status :"connected",
                     avatarUrl: zernioAccount.avatarUrl || zernioAccount.picture || zernioAccount.profile_image_url,
                 },
                 {upsert:true,returnDocument:'after'}

@@ -13,7 +13,7 @@ const pollLeonardoJob = async (generationId , apiKey) =>{
 
     for(let i=0;i<maxRetries;i++){
         try {
-            const response = await axios.get(`ttps://cloud.leonardo.ai/api/rest/v1/generations/${generationId} `,{
+            const response = await axios.get(`https://cloud.leonardo.ai/api/rest/v1/generations/${generationId} `,{
                 headers:{
                     accept: "application/json",
                     authorization:`Bearer ${apiKey}`,
@@ -30,7 +30,7 @@ const pollLeonardoJob = async (generationId , apiKey) =>{
              if(generation.status === "FAILED"){
                 throw new Error("Leonardo.ai Generation Failed");
              }
-        } catch (e) {
+        } catch (err) {
             console.error("Polling Error",err.response.data || err.message);
         }
 
@@ -113,8 +113,8 @@ export const generatePost = async (req, res) => {
 
           mediaUrl = uploadResult.secure_url;
         }
-      } catch (e) {
-        console.error("Image Generation Failed",err);
+      } catch (err) {
+        console.error("Image Generation Failed",err.message);
       }
     }
 
@@ -122,8 +122,8 @@ export const generatePost = async (req, res) => {
         user:req.user._id,
         prompt,
         content,
-        medaiUrl,
-        mediaType : medaiUrl? "image": undefined,
+        mediaUrl,
+        mediaType : mediaUrl? "image": undefined,
         tone
     })
 
@@ -137,10 +137,18 @@ export const generatePost = async (req, res) => {
 export const getGenerations = async (req, res) => {
   
     try {
-        const generations = (await Generation.find({user:req.user._id})).toSorted({createdAt :-1});
+       const generations = await Generation.find({ user: req.user._id }).sort({
+         createdAt: -1,
+       });
         res.json(generations);
     } catch (err) {
-        res.status(500).json({ message: err.message || "Server Error" });
+        console.error("GET /posts/generations error:", err);
+
+        res.status(500).json({
+          success: false,
+          message: "Failed to fetch generations",
+          error: err.message,
+        });
     }
 };
 
@@ -158,7 +166,7 @@ export const schedulePosts = async (req, res) => {
         const {content , platforms , scheduledFor , status} = req.body;
 
         let parsedPlatforms = platforms;
-        if(typeOf (platforms) === "string"){
+        if(typeof platforms === "string"){
             try{
                 parsedPlatforms = JSON.parse(platforms);
             }catch(e){
@@ -166,8 +174,8 @@ export const schedulePosts = async (req, res) => {
             }
         }
 
-        let mediaUrl = "";
-        let mediaType = "";
+        let mediaUrl = req.body.mediaUrl;
+        let mediaType = req.body.mediaType;
 
         if (req.file){
           const result = await new Promise((resolve, reject) => {
@@ -193,18 +201,29 @@ export const schedulePosts = async (req, res) => {
         }
 
         const post = await Post.create({
-            user:req.user._id,
-            content,
-            platform:parsedPlatforms,
-            medaiUrl,
-            mediaType,
-            scheduleFor,
-            status
-        })
+          user: req.user._id,
+          content,
+          platform: parsedPlatforms,
+          mediaUrl,
+          mediaType,
+          scheduledFor,
+          status,
+        });
         res.status(201).json(post);
 
-  } catch (err) {
-        res.status(500).json({ message: err.message || "Server Error" });
-
   }
-};
+        catch (err) {
+          console.log("FULL ERROR:");
+          console.log(err);
+
+          if (err.response) {
+              console.log("STATUS:", err.response.status);
+              console.log("DATA:", err.response.data);
+          }
+
+          res.status(500).json({
+              message: err.message
+          });
+        };
+
+}

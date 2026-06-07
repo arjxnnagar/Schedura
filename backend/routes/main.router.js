@@ -13,17 +13,17 @@ mainRouter.get("/",(req,res)=>{
     res.send("Server is live");
 })
 
-mainRouter.post("/user/register",registerUser);
-mainRouter.post("/user/login", loginUser);
-mainRouter.get("/socials/:platform",protect,generateAuthUrl);
+mainRouter.post("/users/register",registerUser);
+mainRouter.post("/users/login", loginUser);
 mainRouter.get("/socials/sync",protect,syncAccount);
+mainRouter.get("/socials/:platform", protect, generateAuthUrl);
 mainRouter.get("/accounts", protect, getAccounts);
 mainRouter.post("/accounts", protect, addAccount);
-mainRouter.post("/accounts/:id", protect, disconnectAccount);
+mainRouter.delete("/accounts/:id", protect, disconnectAccount);
 mainRouter.get("/posts",protect,getPosts);
 mainRouter.get("/posts/generations", protect, getGenerations);
-mainRouter.get("/posts/generate", protect, generatePost);
-mainRouter.get("/generations", protect, upload.single("media") ,schedulePosts);
+mainRouter.post("/posts/generate", protect, generatePost);
+mainRouter.post("/schedule-posts", protect, upload.single("media") ,schedulePosts);
 mainRouter.get("/activity",protect,getActivity);
 
 

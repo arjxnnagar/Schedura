@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { dummyPostsData, PLATFORMS } from "../assets/assets";
+import { PLATFORMS } from "../assets/assets";
 import {
   ArrowRightIcon,
   CalendarDaysIcon,
@@ -8,6 +8,8 @@ import {
   SendIcon,
   XIcon,
 } from "lucide-react";
+import api from "../api/axios.js";
+import toast from "react-hot-toast";
 
 const Schedura = () => {
   const [posts, setPosts] = useState([]);
@@ -18,12 +20,20 @@ const Schedura = () => {
   const [mediaFile, setMediaFile] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    const fetchDummyPostData = async () => {
-      const data = dummyPostsData;
+
+  const fetchPostData = async () => {
+    try {
+      const { data } = await api.get("/posts");
       setPosts(data);
-    };
-    fetchDummyPostData();
+    } catch (err) {
+      toast.error(err.message || "Failed to fetch Posts");
+    }
+  };
+
+  useEffect(() => {
+    (async ()=> await fetchPostData())();
+    const interval = setInterval(async()=>fetchPostData(),10000);
+    return ()=>clearInterval(interval);
   }, []);
 
   const scheduledPosts = posts.filter((p) => p.status === "scheduled");
@@ -36,12 +46,49 @@ const Schedura = () => {
   };
 
   const handleSchedule = async (e) => {
-    e.prevetDefault();
+    e.preventDefault();
+    
+    if(selectedPlatforms.length === 0){
+      toast.error("Select atleast 1 platform");
+      return;
+    }
+
+    if(!scheduledDate || !scheduledTime){
+      toast.error("Select Date and time");
+      return;
+    }
+
+    if(selectedPlatforms.includes("instagram") && !mediaFile){
+      toast.error("Instagram requires image or video");
+      return;
+    }
+
+    const scheduledFor = new Date(`${scheduledDate}T${scheduledTime}`).toISOString();
+    const formData = new FormData();
+    formData.append("content",content);
+    formData.append("scheduledFor", scheduledFor);
+    formData.append("status", "scheduled");
+    formData.append("platforms", JSON.stringify(selectedPlatforms));
+    if(mediaFile) formData.append("media", mediaFile);
+
     setLoading(true);
-    setTimeout(() => {
+    try {
+      await api.post("/schedule-posts", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      toast.success("Post Scheduled");
+      setContent("");
+      setMediaFile(null);
+      setScheduledDate("");
+      setScheduledTime("");
+      setSelectedPlatforms([]);
+      fetchPostData();
+    } catch (err) {
+        toast.error(err.message  || "Error in Scheduling");
+    }finally{
       setLoading(false);
-      setPosts((prev) => [...prev, dummyPostsData[0]]);
-    }, 1000);
+    }
+
   };
 
   return (
@@ -54,6 +101,7 @@ const Schedura = () => {
 
           <form className="space-y-5" onSubmit={handleSchedule}>
             <div>
+              x
               <label
                 htmlFor=""
                 className="block text-xs text-slate-500 uppercase mb-2"
@@ -95,7 +143,7 @@ const Schedura = () => {
                 onChange={(e) => setContent(e.target.value)}
               />
               <div
-                className={`text-rigth text-vs mt-1 font-medium ${content.length > 270 ? "text-red-500" : "text-slate-400"}`}
+                className={`text-right text-xs mt-1 font-medium ${content.length > 270 ? "text-red-500" : "text-slate-400"}`}
               >
                 {content.length}/280
               </div>
@@ -116,14 +164,15 @@ const Schedura = () => {
                   ) : (
                     <video
                       src={URL.createObjectURL(mediaFile)}
-                      lassName="w-full h-40 object-cover"
+                      controls
+                      className="w-full h-40 object-cover"
                     />
                   )}
 
                   <button
                     type="button"
                     onClick={() => setMediaFile(null)}
-                    className="absolute top-2 right-2 size-7 bg-slate-900/60 hover-bg-slate-900/80 text-white rounded-full flex items-center justify-center transition-colors"
+                    className="absolute top-2 right-2 size-7 bg-slate-900/60 hover:bg-slate-900/80 text-white rounded-full flex items-center justify-center transition-colors"
                   >
                     <XIcon className="size-3.5" />
                   </button>
@@ -137,9 +186,10 @@ const Schedura = () => {
                     type="file"
                     accept="image/* ,video/*"
                     className="hidden"
-                    onChange={(e) =>
-                      e.target.files[0] && setMediaFile(e.target.files[0])
-                    }
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) setMediaFile(file);
+                    }}
                   />
                 </label>
               )}
@@ -224,7 +274,7 @@ const Schedura = () => {
                     >
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex gap-1.5 items-center">
-                          {post.platforms.map((pl) => {
+                          {post.platforms?.map((pl) => {
                             const meta = PLATFORMS.find((p) => p.id === pl);
                             return meta ? (
                               <meta.icon
@@ -278,7 +328,7 @@ const Schedura = () => {
                     >
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex gap-1.5 items-center">
-                          {post.platforms.map((pl) => {
+                          {post.platforms?.map((pl) => {
                             const meta = PLATFORMS.find((p) => p.id === pl);
                             return meta ? (
                               <meta.icon
@@ -297,7 +347,9 @@ const Schedura = () => {
                           <span className="text-xs text-slate-400">
                             {new Date(post.scheduledFor).toLocaleString()}
                           </span>
-                          <span className="text-xs bg-emerald-50 text-emerald-600 border border-emerald-100 px-2 py-0.5 rounded-full">Published</span>
+                          <span className="text-xs bg-emerald-50 text-emerald-600 border border-emerald-100 px-2 py-0.5 rounded-full">
+                            Published
+                          </span>
                         </div>
                       </div>
                       <p className="text-sm text-slate-500 line-clamp-2 max-w-4/5">

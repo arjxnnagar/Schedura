@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { dummyGenerationData, PLATFORMS } from "../assets/assets";
+import { PLATFORMS } from "../assets/assets";
 import {
   ArrowRightIcon,
   Calendar,
@@ -11,6 +11,8 @@ import {
   Wand2Icon,
   XIcon,
 } from "lucide-react";
+import api from "../api/axios.js";
+import toast from "react-hot-toast";
 
 const AIcomposer = () => {
   const [prompt, setPrompt] = useState("");
@@ -25,29 +27,82 @@ const AIcomposer = () => {
   const [scheduledTime, setscheduledTime] = useState("");
   const [scheduling, setScheduling] = useState(false);
 
+  const fetchGenerations = async () => {
+    try {
+      const { data } = await api.get("/posts/generations");
+      setGenerations(data);
+    } catch (err) {
+      toast.error(err.message);
+    }
+  };
+
   useEffect(() => {
-    const fetchGenerations = async () => {
-      setGenerations(dummyGenerationData);
-    };
     fetchGenerations();
   }, []);
 
   const tones = ["Professional", "Creative", "Funny", "Minimalist", "Excited"];
 
   const handleGenerate = async () => {
+
+    if(!prompt) toast.error("Enter Prompt");
     setLoading(true);
-    setTimeout(() => {
+    try {
+      const { data } = await api.post("/posts/generate",{
+        prompt,tone,generateImage
+      });
+      setGenerations([data , ...generations]);
+      setActiveScheduler(data);
+      toast.success("Content Generated");
+    } catch (err) { 
+      toast.error(err.message);
+    }finally{
       setLoading(false);
-    }, 2000);
+    }
+
   };
 
-  const handleSchedule = async ()=>{
+  const handleSchedule = async (e)=>{
 
-    setScheduling(true);
-    setTimeout(() => {
-      setScheduling(false);
-    }, 2000);
+    e.preventDefault();
+    if(!activeScheduler){
+      return;
+    }
+    if(selectedPlatforms.length === 0){
+      toast.error("Select atleast 1 platform");
+      return;
+    }
+    if (!scheduledDate || !scheduledTime) {
+      toast.error("Select Date and time");
+      return;
+    }
+     const scheduledFor = new Date(`${scheduledDate}T${scheduledTime}`).toISOString();
+     setScheduling(true);
 
+     try {
+       await api.post(
+         "/schedule-posts",
+         {
+           content: activeScheduler.content,
+           mediaUrl: activeScheduler.mediaUrl,
+           mediaType: activeScheduler.mediaType,
+           platforms: selectedPlatforms,
+           scheduledFor,
+           status: "scheduled",
+         },
+         {
+           headers: { "Content-Type": "multipart/form-data" },
+         },
+       );
+       toast.success("Ai Post Scheduled");
+       setActiveScheduler(null);
+       setScheduledDate("");
+       setScheduledTime("");
+       setSelectedPlatforms([]);
+     } catch (err) {
+       toast.error(err.message || "Error in Scheduling");
+     } finally {
+       setScheduling(false);
+     }
   }
 
 
@@ -250,7 +305,7 @@ const AIcomposer = () => {
                 <div className="relative">
                   <ClockIcon className="size-4 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
                   <input
-                    type="date"
+                    type="time"
                     className="w-full pl-11 py-3 bg-slate-50 border border-slate-100 rounded-md text-slate-900 text-sm focus:outilne-none transition-all"
                     value={scheduledTime}
                     onChange={(e) => setscheduledTime(e.target.value)}
