@@ -16,22 +16,16 @@ app.use("/",mainRouter);
 
 
 await connectDB();
-
 initSchedular();
-
 
 app.use((err,req,res,next)=>{
     console.error(err);
     res.status(res.statusCode || 500).json({message:err.message});
 })
 
-
 if (process.env.NODE_ENV !== "production") {
     app.listen(PORT,()=>{
     console.log(`Server is live on http://localhost:${PORT}`)
 })
 }
-
-
-
 export default app;

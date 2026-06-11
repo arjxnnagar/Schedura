@@ -27,5 +27,4 @@ mainRouter.post("/schedule-posts", protect, upload.single("media") ,schedulePost
 mainRouter.get("/activity",protect,getActivity);
 
 
-
 export default mainRouter;

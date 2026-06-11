@@ -20,7 +20,7 @@ const Dashboard = () => {
           published: (posts.filter((p) => p.status === "published")).length,
           connectedAccounts: accountsRes.filter((a) => a.status === "connected").length,
         });
-
+        
         setActivities(activityRes);
       }catch(err){
         console.error("Error fetching Dashboard Data",err)
@@ -34,7 +34,7 @@ const Dashboard = () => {
       label: "Scheduled Posts",
       value: stats.scheduled,
       icon: ClockIcon,
-      trend: "+2 today",
+      trend: "today",
     },
     {
       label: "Published Posts",

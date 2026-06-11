@@ -25,7 +25,7 @@ export const initSchedular = ()=>{
                     }
                     const zernioPlatforms = accounts.map((acc)=>({
                         platform : acc.platform,
-                        accountId:acc.zernioAccountId
+                        accountId: acc.zernioAccountId
                     }))
                     const payload = {
                         content : post.content,
@@ -68,7 +68,7 @@ export const initSchedular = ()=>{
         } catch (err) {
             console.error(
               `Failed to publish Post ${post._id}:`,
-              e.response?.data || e.message,
+              err.response?.data || err.message,
             );
         }
     })
