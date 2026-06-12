@@ -4,6 +4,7 @@ import cors from "cors";
 import mainRouter from "./routes/main.router.js";
 import connectDB from "./config/db.js";
 import { initSchedular } from "./services/schedulerService.js";
+import cloudinary from "./config/cloudinary.js";
 
 const app = express();
 configDotenv();

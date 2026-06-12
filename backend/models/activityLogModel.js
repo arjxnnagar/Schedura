@@ -5,7 +5,7 @@ const activityLogSchema = new Schema(
     user: { type: Schema.Types.ObjectId, ref: "User", required: true },
     actionType: { type :String,enum:["POST_PUBLISHED","AI_REPLY"],required:true},
     description:{type:String,required:true},
-    user: { type: Schema.Types.ObjectId, ref: "Post"},
+    relatedPost: { type: Schema.Types.ObjectId, ref: "Post"},
     platform:{type:String},
     aiGeneratedText :{type:String},
   },

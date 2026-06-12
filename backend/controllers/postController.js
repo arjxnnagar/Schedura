@@ -2,44 +2,52 @@ import { configDotenv } from "dotenv";
 configDotenv();
 import { GoogleGenAI } from "@google/genai";
 import axios from "axios";
-import { cloudinary } from "../config/cloudinary.js";
+import cloudinary from "../config/cloudinary.js";
 import Generation from "../models/generationModel.js";
 import Post from "../models/postModel.js";
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const pollLeonardoJob = async (generationId, apiKey) => {
-  const maxRetries = 20;
-  const delay = 5000;
+  const maxRetries = 30;
 
   for (let i = 0; i < maxRetries; i++) {
-    try {
-      const response = await axios.get(
-        `https://cloud.leonardo.ai/api/rest/v1/generations/${generationId} `,
-        {
-          headers: {
-            accept: "application/json",
-            authorization: `Bearer ${apiKey}`,
-          },
+    const response = await axios.get(
+      `https://cloud.leonardo.ai/api/rest/v1/generations/${generationId}`,
+      {
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          accept: "application/json",
         },
-      );
+      },
+    );
 
-      const generation = response.data.generation_by_pk;
-      if (generation.status === "COMPLETE") {
-        if (generation.generate_image && generation.generate_image.length > 0) {
-          return generation.generate_image[0].url;
-        }
-        throw new Error("Generation Complete but no image Found");
-      }
-      if (generation.status === "FAILED") {
-        throw new Error("Leonardo.ai Generation Failed");
-      }
-    } catch (err) {
-      console.error("Polling Error", err.response.data || err.message);
+    console.log("Polling Response:", JSON.stringify(response.data, null, 2));
+
+    const generation =
+      response.data.generations_by_pk || response.data.generation_by_pk;
+
+    if (!generation) {
+      throw new Error("Generation data missing");
     }
 
-    await new Promise((resolve) => setTimeout(resolve, delay));
-  }
+    if (generation.status === "COMPLETE") {
+      const image =
+        generation.generated_images?.[0] || generation.generate_image?.[0];
 
-  throw new Error("Leonardo.ai generation Timeout");
+      if (!image?.url) {
+        throw new Error("Image generated but URL missing");
+      }
+
+      return image.url;
+    }
+
+    if (generation.status === "FAILED") {
+      throw new Error("Leonardo generation failed");
+    }
+
+    await sleep(5000);
+  }
+  throw new Error("Leonardo generation timeout");
 };
 
 export const generatePost = async (req, res) => {
@@ -47,91 +55,117 @@ export const generatePost = async (req, res) => {
     const { prompt, tone, generateImage } = req.body;
 
     const apiKey = process.env.GEMINI_API_KEY;
+
     if (!apiKey) {
-      res.status(400).json({ message: "Gemini API key is missing." });
+      return res.status(400).json({
+        message: "Gemini API key is missing.",
+      });
     }
+
     const ai = new GoogleGenAI({ apiKey });
+
     const textResponse = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: `Generate a social media post based on this prompt:${prompt}.
-            The tonality of the image shoulr reflect ${tone}.
-            The post should also include relevant hashtags.
-            Format the response as JSON with "content" and "imagePrompt" fields
-            The "imagePrompt" should be a highly descriptive prompt for an image generator that complements the post.
-            `,
+      model: "gemini-2.0-flash",
+      contents: `Generate a social media post based on this prompt: ${prompt}.
+        Tone: ${tone}
+        Return ONLY valid JSON:
+        {
+          "content": "...",
+          "imagePrompt": "..."
+        }`,
     });
+
     let content = "";
     let imagePrompt = prompt;
 
     try {
       const rawText = textResponse.text || "";
-      const jsonMatcth = rawText.match(/\{[\s\S]*\}/);
-      const data = jsonMatcth
-        ? JSON.parse(jsonMatcth[0])
-        : { content: rawText, imagePrompt: prompt };
+      const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+
+      const data = jsonMatch
+        ? JSON.parse(jsonMatch[0])
+        : {
+            content: rawText,
+            imagePrompt: prompt,
+          };
+
       content = data.content;
       imagePrompt = data.imagePrompt;
-    } catch (e) {
+    } catch {
       content = textResponse.text || "";
     }
 
     let mediaUrl = "";
+
     if (generateImage) {
-      try {
-        const leonardoKey = process.env.LEONARDO_API_KEY;
-        if (leonardoKey) {
-          const leoResponse = await axios.post(
-            "https://cloud.leonardo.ai/api/rest/v2/generations",
-            {
-              public: false,
-              model: "gpt-image-2",
-              parameters: {
-                quality: "LOW",
-                prompt: imagePrompt,
-                quantity: 1,
-                width: 1024,
-                height: 1024,
-                prompt_enhance: "OFF",
-              },
-            },
-            {
-              headers: {
-                accept: "application/json",
-                authorization: `Bearer ${leonardoKey}`,
-                "content-type": "application/json",
-              },
-            },
-          );
+      const leonardoKey = process.env.LEONARDO_API_KEY;
 
-          const generationId = leoResponse.data.generate.generationId;
-          const tempUrl = await pollLeonardoJob(generationId, leonardoKey);
-
-          const uploadResult = await cloudinary.uploader.upload(tempUrl, {
-            folder: "Ai-generations",
-          });
-
-          mediaUrl = uploadResult.secure_url;
-        }
-      } catch (err) {
-        console.error("Image Generation Failed", err.message);
+      if (!leonardoKey) {
+        throw new Error("LEONARDO_API_KEY missing");
       }
+
+      console.log("Starting Leonardo generation...");
+
+      const generationResponse = await axios.post(
+        "https://cloud.leonardo.ai/api/rest/v1/generations",
+        {
+          prompt: imagePrompt,
+          width: 1024,
+          height: 1024,
+          num_images: 1,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${leonardoKey}`,
+            "Content-Type": "application/json",
+            accept: "application/json",
+          },
+        },
+      );
+
+      const generationId =
+        generationResponse.data.sdGenerationJob?.generationId ||
+        generationResponse.data.generate?.generationId;
+
+      if (!generationId) {
+        throw new Error("Leonardo generationId missing");
+      }
+
+      const imageUrl = await pollLeonardoJob(generationId, leonardoKey);
+
+      console.log("Generated Image URL:", imageUrl);
+
+      const uploadResult = await cloudinary.uploader.upload(imageUrl, {
+        folder: "Ai-generations",
+      });
+
+      mediaUrl = uploadResult.secure_url;
+
+      console.log("Cloudinary Upload Success:", mediaUrl);
     }
+
+    console.log("MEDIA URL BEFORE SAVE:", mediaUrl);
 
     const generation = await Generation.create({
       user: req.user._id,
       prompt,
       content,
-      mediaUrl,
+      mediaUrl: mediaUrl,
       mediaType: mediaUrl ? "image" : undefined,
       tone,
     });
 
-    res.json(generation);
+    console.log("SAVED DOCUMENT:", generation);
+
+    return res.status(201).json(generation);
   } catch (err) {
-    res.status(500).json({ message: err.message || "Server Error" });
+    console.error("GENERATE POST ERROR:", err);
+
+    return res.status(500).json({
+      message: err.message || "Server Error",
+    });
   }
 };
-
 export const getGenerations = async (req, res) => {
   try {
     const generations = await Generation.find({ user: req.user._id }).sort({
@@ -158,94 +192,12 @@ export const getPosts = async (req, res) => {
   }
 };
 
-// export const schedulePosts = async (req, res) => {
-
-//   try {
-//     const { content, platforms, scheduledFor, status } = req.body;
-
-//     let parsedPlatforms = platforms;
-//     if (typeof platforms === "string") {
-//       try {
-//         parsedPlatforms = JSON.parse(platforms);
-//       } catch (e) {
-//         parsedPlatforms = platforms.split(",");
-//       }
-//     }
-
-//     let mediaUrl = req.body.mediaUrl;
-//     let mediaType = req.body.mediaType;
-
-//     if (req.file) {
-//       const result = await new Promise((resolve, reject) => {
-//         const stream = cloudinary.uploader.upload_stream(
-//           {
-//             resource_type: "auto",
-//             folder: "social-scheduler",
-//           },
-//           (error, result) => {
-//             if (error) {
-//               reject(error);
-//             } else {
-//               resolve(result);
-//             }
-//           },
-//         );
-
-//         stream.end(req.file.buffer);
-//       });
-
-//       mediaUrl = result.secure_url;
-//       mediaType = result.resource_type === "video" ? "video" : "image";
-//     }
-
-//     const post = await Post.create({
-//       user: req.user._id,
-//       content,
-//       platform: parsedPlatforms,
-//       mediaUrl,
-//       mediaType,
-//       scheduledFor,
-//       status,
-//     });
-//     res.status(201).json(post);
-//   } catch (err) {
-//     console.log("FULL ERROR:", err);
-
-//     if (err.response) {
-//       console.log("STATUS:", err.response.status);
-//       console.log("DATA:", err.response.data);
-//     }
-
-//     res.status(500).json({
-//       message: err.message,
-//     });
-//   }
-// };
-
 export const schedulePosts = async (req, res) => {
-  try {
-    console.log("=== SCHEDULE POST START ===");
 
+  try {
     const { content, platforms, scheduledFor, status } = req.body;
 
-    console.log("BODY:", {
-      content,
-      platforms,
-      scheduledFor,
-      status,
-    });
-
-    console.log("USER:", req.user?._id);
-
-    console.log("FILE:", {
-      exists: !!req.file,
-      originalname: req.file?.originalname,
-      mimetype: req.file?.mimetype,
-      size: req.file?.size,
-    });
-
     let parsedPlatforms = platforms;
-
     if (typeof platforms === "string") {
       try {
         parsedPlatforms = JSON.parse(platforms);
@@ -258,32 +210,29 @@ export const schedulePosts = async (req, res) => {
     let mediaType = req.body.mediaType;
 
     if (req.file) {
-      try {
-        console.log("=== STARTING CLOUDINARY UPLOAD ===");
+      const result = await new Promise((resolve, reject) => {
+        console.log("CLOUDINARY CONFIG:");
+        console.log(cloudinary.config());
+        const stream = cloudinary.uploader.upload_stream(
+          {
+            resource_type: "auto",
+            folder: "social-scheduler",
+          },
+          (error, result) => {
+           console.log("CLOUDINARY CALLBACK");
+           console.log("ERROR:", error);
+           console.log("RESULT:", result);
 
-        const fileStr = `data:${req.file.mimetype};base64,${req.file.buffer.toString("base64")}`;
+           if (error) reject(error);
+           else resolve(result);
+          },
+        );
+        stream.end(req.file.buffer);
+      });
 
-        const result = await cloudinary.uploader.upload(fileStr, {
-          folder: "social-scheduler",
-          resource_type: "auto",
-        });
-
-        console.log("UPLOAD SUCCESS:", result);
-
-        mediaUrl = result.secure_url;
-        mediaType = result.resource_type === "video" ? "video" : "image";
-      } catch (error) {
-        console.log("=== CLOUDINARY UPLOAD ERROR ===");
-        console.dir(error, { depth: null });
-
-        return res.status(500).json({
-          error,
-          message: error?.message || "Upload failed",
-        });
-      }
+      mediaUrl = result.secure_url;
+      mediaType = result.resource_type === "video" ? "video" : "image";
     }
-
-    console.log("=== CREATING POST ===");
 
     const post = await Post.create({
       user: req.user._id,
@@ -294,28 +243,15 @@ export const schedulePosts = async (req, res) => {
       scheduledFor,
       status,
     });
-
-    console.log("=== POST CREATED ===");
-
     res.status(201).json(post);
   } catch (err) {
-    console.log("=== ERROR ===");
-
-    console.log("NAME:", err.name);
-    console.log("MESSAGE:", err.message);
-    console.log("HTTP CODE:", err.http_code);
-
+    console.log("================================");
+    console.log("FULL ERROR");
     console.dir(err, { depth: null });
-
-    if (err.response) {
-      console.log("RESPONSE STATUS:", err.response.status);
-      console.log("RESPONSE DATA:", err.response.data);
-    }
+    console.log("================================");
 
     res.status(500).json({
       message: err.message,
-      name: err.name,
-      http_code: err.http_code,
     });
   }
 };
