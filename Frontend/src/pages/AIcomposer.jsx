@@ -23,8 +23,8 @@ const AIcomposer = () => {
 
   const [activeScheduler, setActiveScheduler] = useState(null);
   const [selectedPlatforms, setSelectedPlatforms] = useState([]);
-  const [scheduledDate, setscheduledDate] = useState("");
-  const [scheduledTime, setscheduledTime] = useState("");
+  const [scheduledDate, setScheduledDate] = useState("");
+  const [scheduledTime, setScheduledTime] = useState("");
   const [scheduling, setScheduling] = useState(false);
 
   const fetchGenerations = async () => {
@@ -299,7 +299,7 @@ const AIcomposer = () => {
                     type="date"
                     className="w-full pl-11 py-3 bg-slate-50 border border-slate-100 rounded-md text-slate-900 text-sm focus:outilne-none transition-all"
                     value={scheduledDate}
-                    onChange={(e) => setscheduledDate(e.target.value)}
+                    onChange={(e) => setScheduledDate(e.target.value)}
                   />
                 </div>
                 <div className="relative">
@@ -308,7 +308,7 @@ const AIcomposer = () => {
                     type="time"
                     className="w-full pl-11 py-3 bg-slate-50 border border-slate-100 rounded-md text-slate-900 text-sm focus:outilne-none transition-all"
                     value={scheduledTime}
-                    onChange={(e) => setscheduledTime(e.target.value)}
+                    onChange={(e) => setScheduledTime(e.target.value)}
                   />
                 </div>
               </div>
